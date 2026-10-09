@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arcade mold — starter</title>
+<!--
+  Starter page for the arcade mold. Copy this file + arcade-shell.css + arcade-shell.js into a new project,
+  then change the SHELL constants and the contents of #stage.
+  The four rules are at the top of arcade-shell.js. Run arc.audit() in the console: done means all zeros.
+-->
+<link rel="stylesheet" href="arcade-shell.css">
+<style>
+  :root{ --gold:#f0b93a; --bg:#0f0904; --ink:#f5e6c8; }
+  body{ background:var(--bg); font-family:monospace; color:var(--ink); }
+
+  /* Demo content: board + right side column + touch row. Replace with yours. */
+  #cabRow{ display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;justify-content:center; }
+  .cab{ grid-column:1;grid-row:1;
+    border:8px solid var(--gold);background:#000;box-sizing:border-box;
+    /* content-box trap: width/height are the content size and the border grows outward.
+       To align outer edges use border-box — width is then the outer width. */
+    display:flex;align-items:center;justify-content:center; }
+  #sideCol{ grid-column:2;grid-row:1;align-self:start;
+    border:8px solid var(--gold);background:#000;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;
+    /* Vertical text in a narrow column: writing-mode:vertical-lr + text-orientation:upright.
+       Grid items default to min-height:auto — content can blow up a 1fr row; set min-height:0. */
+  }
+  #touchRow{ grid-column:1 / -1;grid-row:2;margin-top:0; }   /* the rest is in arcade-shell.css */
+  #touchRow button{ background:#000;border:8px solid var(--gold);color:var(--gold); }
+</style>
+
+<div id="stage">
+  <div id="cabRow">
+    <div class="cab" id="cab">board</div>
+    <div id="sideCol">side</div>
+    <div id="touchRow">
+      <button>◀</button><button class="filler">↻</button><button>▼</button><button>▶</button>
+    </div>
+  </div>
+</div>
+
+<script src="arcade-shell.js"></script>
+<script>
+/* ── Constants: the only input to size(). Change these, not the shell. ── */
+const SHELL = {
+  wide:  { w: 2560, h: 1440 },     // desktop reference canvas
+  cab:   { w: 420,  h: 900 },      // board design size (demo values)
+  side:  120,                      // side-column outer width = touch-button square size
+  gapH:  0,                        // magnetic: board-to-touch-row gap
+};
+
+const touchRow = document.getElementById('touchRow');
+
+const arc = initArcade({
+  stage: '#stage',
+  wideQuery: '(min-width:1400px) and (min-aspect-ratio:3/2)',
+  marginX: 12,
+  bottomPad: 10,
+  /* Stage size: constants only. Touch-row height = square side = side-column width. */
+  size: wide => wide
+    ? { w: SHELL.wide.w, h: SHELL.wide.h }
+    : { w: SHELL.cab.w + SHELL.side,
+        h: SHELL.cab.h + SHELL.gapH + (arcTouchVisible() ? SHELL.side : 0) },
+  /* Don't touch the outer `arc` here: the first fit runs inside initArcade, while `arc` is still in the
+     temporal dead zone — reading it throws a ReferenceError. Use arcTouchVisible() instead. */
+  onFit: () => {
+    touchRow.style.display = arcTouchVisible() ? 'flex' : 'none';
+    touchRow.style.setProperty('--tu', SHELL.side + 'px');
+  },
+  /* Page-specific audit rows, appended after the shell's four */
+  rows: () => {
+    const r = e => e.getBoundingClientRect();
+    const cab = r(document.getElementById('cab')), sd = r(document.getElementById('sideCol'));
+    const rows = [
+      ['side column snaps to board', Math.round(sd.left - cab.right)],
+      ['side column top aligned', Math.round(sd.top - cab.top)],
+    ];
+    if (touchRow.style.display !== 'none') {
+      const b = touchRow.querySelectorAll('button');
+      rows.push(['touch row under board', Math.round(r(b[0]).top - cab.bottom)],
+                ['touch row left edge', Math.round(r(b[0]).left - cab.left)],
+                ['touch row right edge', Math.round(r(b[3]).right - sd.right)],
+                ['arrow buttons square', Math.round(r(b[0]).width - r(b[0]).height)],
+                ['▶ = side width', Math.round(r(b[3]).width - sd.width)]);
+    }
+    return rows;
+  },
+});
+/* size() runs during the first fit, before `arc` exists — so "does the touch row take height?" has exactly one
+   definition here (three copies for three call sites will drift apart). */
+function arcTouchVisible(){
+  return matchMedia('(pointer:coarse) and (hover:none)').matches &&
+         !matchMedia('(min-width:1400px) and (min-aspect-ratio:3/2)').matches;
+}
+
+/* Demo content sizes (in a real project your layout decides — still constants only). border-box everywhere. */
+const cab = document.getElementById('cab'), side = document.getElementById('sideCol');
+cab.style.width  = SHELL.cab.w + 'px';
+cab.style.height = SHELL.cab.h + 'px';
+side.style.width = SHELL.side + 'px';
+side.style.height = Math.round(SHELL.cab.h * 0.4) + 'px';
+arc.fit();
+</script>
+</html>
